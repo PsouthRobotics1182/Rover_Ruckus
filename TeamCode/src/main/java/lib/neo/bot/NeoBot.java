@@ -12,7 +12,7 @@ import lib.neo.drive.NeoFour;
 
 public class NeoBot {
     LinearOpMode opMode;
-    NeoDrive driveTrain;
+    public NeoDrive driveTrain;
 
     public NeoBot(LinearOpMode opMode) {
         this.opMode = opMode;

@@ -26,6 +26,8 @@ public class NeoDc implements NeoMotor {
     public NeoDc(LinearOpMode opMode, String name, float circumference) {
         this.opMode = opMode;
         this.motor = this.opMode.hardwareMap.get(DcMotor.class, name);
+        set_forward(true);
+        set_brake(false);
         this.circumference = circumference;
     }
 

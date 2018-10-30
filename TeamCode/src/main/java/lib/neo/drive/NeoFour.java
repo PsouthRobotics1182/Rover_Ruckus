@@ -7,15 +7,26 @@ package lib.neo.drive;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import lib.neo.motor.core.NeoMotor;
-import lib.neo.motor.NeoDc;
 import lib.neo.drive.core.NeoDrive;
+import lib.neo.motor.core.NeoMotor;
 import lib.neo.misc.NeoRunnables;
+import lib.neo.drive.NeoIMU;
+import lib.neo.motor.NeoDc;
 
 public class NeoFour implements NeoDrive {
     private LinearOpMode opMode;
     private NeoMotor wheel[][];
-    private boolean gyroMode = false;
+    private NeoIMU imu;
+
+    /* Tuning */
+
+    private static final double ANGLE_TOLERANCE = 1; // How precise turns are.
+
+    /* Mode Variables */
+
+    private boolean gyroMode;
+
+    /* Constructor */
 
     public NeoFour(LinearOpMode opMode, float circumference) {
         this.opMode = opMode;
@@ -24,18 +35,28 @@ public class NeoFour implements NeoDrive {
         this.wheel[0][1] = new NeoDc(this.opMode, "frontRight", circumference);
         this.wheel[1][0] = new NeoDc(this.opMode, "rearLeft", circumference);
         this.wheel[1][1] = new NeoDc(this.opMode, "rearRight", circumference);
+        this.wheel[0][0].set_forward(true);
+        this.wheel[0][1].set_forward(true);
+        this.wheel[1][0].set_forward(false);
+        this.wheel[1][1].set_forward(false);
+        this.imu = new NeoIMU(this.opMode, "imu");
+        this.gyroMode = false;
     }
 
+    /* Movement */
+
     public boolean goes_fw(double mm, double power) {
-        // TODO: Gyro headings / IMU.
         final double distance = Math.abs(this.wheel[0][0].mm_to_ticks(mm));
+        final double correction = gyroMode ? imu.align(0) : 0;
         final double pos = Math.abs(pos_min());
         if ((pos < distance) && opMode.opModeIsActive()) {
-            for (int i = 0; i < 2; i++)
-                for (int j = 0; j < 2; j++)
-                    wheel[i][j].set_power(power);
+            wheel[0][0].set_power(power - correction);
+            wheel[0][1].set_power(power + correction);
+            wheel[1][0].set_power(power - correction);
+            wheel[1][1].set_power(power + correction);
             return true;
         }
+        imu.resetPID();
         return false;
     }
 
@@ -48,16 +69,7 @@ public class NeoFour implements NeoDrive {
     }
 
     public boolean goes_bk(double mm, double power) {
-        // TODO: Gyro headings / IMU.
-        final double distance = Math.abs(this.wheel[0][0].mm_to_ticks(mm));
-        final double pos = Math.abs(pos_min());
-        if ((pos < distance) && opMode.opModeIsActive()) {
-            for (int i = 0; i < 2; i++)
-                for (int j = 0; j < 2; j++)
-                    wheel[i][j].set_power(-Math.abs(power));
-            return true;
-        }
-        return false;
+        return goes_fw(mm, -power);
     }
 
     public void go_bk(double mm, double power) {
@@ -77,7 +89,18 @@ public class NeoFour implements NeoDrive {
     public void go_ri(double mm, double power, Runnable r) { while(goes_ri(mm, power)) r.run(); }
 
     public boolean rots(double deg, double power) {
-        return false; // TODO: Implementation.
+        if ((Math.abs(imu.getHeading() - deg) > ANGLE_TOLERANCE) && opMode.opModeIsActive()) {
+            double correction = imu.align(deg);
+            final double correction_abs = Math.abs(correction);
+            correction = (correction_abs > power) ? power * correction / correction_abs : correction;
+            wheel[0][0].set_power(-correction);
+            wheel[0][1].set_power(+correction);
+            wheel[1][0].set_power(-correction);
+            wheel[1][1].set_power(+correction);
+            return true;
+        }
+        imu.resetPID();
+        return false;
     }
 
     public void rot(double deg, double power) {
@@ -91,7 +114,7 @@ public class NeoFour implements NeoDrive {
     /* Position Checking */
 
     public void set_gyro(boolean state) {
-
+        gyroMode = state;
     }
 
     public double pos_min() {

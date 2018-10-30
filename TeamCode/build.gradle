@@ -13,3 +13,17 @@
 
 // Include common definitions from above.
 apply from: '../build.common.gradle'
+
+buildscript {
+    repositories {
+        google()
+        jcenter()
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+    }
+}
